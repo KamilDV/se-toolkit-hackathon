@@ -1,0 +1,1 @@
+-e "\n# Env files\n.env\n.env.*"  
