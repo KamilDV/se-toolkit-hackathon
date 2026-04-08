@@ -30,8 +30,8 @@ async def get_user_decks(
     db: AsyncSession = Depends(get_db),
 ):
     deck_service = DeckService(db)
-    decks = await deck_service.get_user_decks(current_user.id, skip=skip, limit=limit)
-    return decks
+    decks_data = await deck_service.get_user_decks(current_user.id, skip=skip, limit=limit)
+    return [DeckResponse(**d) for d in decks_data]
 
 
 @router.get("/{deck_id}", response_model=DeckResponse)
@@ -42,11 +42,19 @@ async def get_deck(
 ):
     deck_service = DeckService(db)
     deck = await deck_service.get_by_id(deck_id)
-    
+
     if not deck or deck.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Колода не найдена")
-    
-    return deck
+
+    return DeckResponse(
+        id=deck.id,
+        title=deck.title,
+        description=deck.description,
+        user_id=deck.user_id,
+        flashcard_count=len(deck.flashcards) if deck.flashcards else 0,
+        created_at=deck.created_at,
+        updated_at=deck.updated_at,
+    )
 
 
 @router.put("/{deck_id}", response_model=DeckResponse)
