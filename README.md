@@ -1,53 +1,343 @@
 # AI Flashcards 🧠
 
-AI-Flashcards is a web application that automatically generates study flashcards from any input text using LLM power.
+AI-Flashcards — это веб-приложение для автоматического создания учебных карточек из любого текста с использованием AI (Qwen).
 
-## Demo
+## Демо
 ![Demo Placeholder](https://via.placeholder.com/800x450?text=AI+Flashcards+Interface+Demo)
 
-## Product Context
-- **Target Users:** Students and lifelong learners.
-- **Problem:** Manually creating flashcards from long lectures is time-consuming and tedious.
-- **Solution:** Instant generation of high-quality Q&A pairs using GPT-4o-mini, allowing users to focus on studying instead of preparation.
+## Контекст продукта
+- **Целевая аудитория:** Студенты и все, кто занимается самообразованием.
+- **Проблема:** Ручное создание флешкарточек из длинных лекций занимает много времени.
+- **Решение:** Мгновенная генерация качественных пар вопрос-ответ с помощью AI, позволяющая сосредоточиться на учёбе, а не на подготовке.
+
+## Технологии
+- **Backend:** FastAPI + SQLAlchemy (async) + PostgreSQL
+- **AI:** Qwen API (OpenAI-compatible)
+- **Frontend:** Vanilla JS
+- **Контейнеризация:** Docker + Docker Compose
+- **Миграции:** Alembic
+- **Аутентификация:** JWT tokens
+
+## Архитектура проекта
+```
+backend/
+├── app/
+│   ├── api/              # Роуты (endpoints)
+│   │   ├── auth.py         # Регистрация и логин
+│   │   ├── users.py        # Управление пользователями
+│   │   ├── decks.py        # CRUD колод
+│   │   ├── flashcards.py   # CRUD карточек + генерация
+│   │   └── dependencies.py # Зависимости (auth)
+│   ├── core/             # Конфигурация и утилиты
+│   │   ├── config.py       # Настройки приложения
+│   │   ├── database.py     # Подключение к БД
+│   │   └── security.py     # JWT и хеширование
+│   ├── models/           # SQLAlchemy модели
+│   │   ├── user.py
+│   │   ├── deck.py
+│   │   └── flashcard.py
+│   ├── schemas/          # Pydantic схемы
+│   │   ├── user.py
+│   │   ├── deck.py
+│   │   ├── flashcard.py
+│   │   └── token.py
+│   ├── services/         # Бизнес-логика
+│   │   ├── user_service.py
+│   │   ├── deck_service.py
+│   │   ├── flashcard_service.py
+│   │   └── ai_service.py
+│   └── main.py           # Точка входа
+├── alembic/              # Миграции БД
+├── requirements.txt
+└── Dockerfile
+```
+
+## REST API Документация
+
+### Базовый URL
+```
+http://localhost:8000/api/v1
+```
+
+### Интерактивная документация
+После запуска перейдите на:
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
+
+---
+
+### 🔐 Auth
+
+#### Регистрация
+```http
+POST /api/v1/auth/register
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "username": "student123",
+  "password": "securepass123"
+}
+
+Response 200:
+{
+  "access_token": "eyJ...",
+  "token_type": "bearer"
+}
+```
+
+#### Логин
+```http
+POST /api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "securepass123"
+}
+
+Response 200:
+{
+  "access_token": "eyJ...",
+  "token_type": "bearer"
+}
+```
+
+---
+
+### 👤 Users
+
+#### Получить текущего пользователя
+```http
+GET /api/v1/users/me
+Authorization: Bearer <token>
+
+Response 200:
+{
+  "id": 1,
+  "email": "user@example.com",
+  "username": "student123",
+  "is_active": true,
+  "created_at": "2026-04-08T10:00:00"
+}
+```
+
+#### Обновить текущего пользователя
+```http
+PUT /api/v1/users/me
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "username": "newname",
+  "password": "newpassword123"
+}
+```
+
+---
+
+### 📚 Decks (Колоды)
+
+#### Создать колоду
+```http
+POST /api/v1/decks/
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "title": "Математика",
+  "description": "Формулы и теоремы"
+}
+
+Response 201:
+{
+  "id": 1,
+  "title": "Математика",
+  "description": "Формулы и теоремы",
+  "user_id": 1,
+  "created_at": "2026-04-08T10:00:00"
+}
+```
+
+#### Получить все колоды пользователя
+```http
+GET /api/v1/decks/
+Authorization: Bearer <token>
+
+Response 200:
+[
+  {
+    "id": 1,
+    "title": "Математика",
+    "description": "Формулы и теоремы",
+    "user_id": 1,
+    "created_at": "2026-04-08T10:00:00"
+  }
+]
+```
+
+#### Получить колоду по ID
+```http
+GET /api/v1/decks/{deck_id}
+Authorization: Bearer <token>
+```
+
+#### Обновить колоду
+```http
+PUT /api/v1/decks/{deck_id}
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "title": "Обновлённое название"
+}
+```
+
+#### Удалить колоду
+```http
+DELETE /api/v1/decks/{deck_id}
+Authorization: Bearer <token>
+
+Response 204: No Content
+```
+
+---
+
+### 🃏 Flashcards (Карточки)
+
+#### Создать карточку вручную
+```http
+POST /api/v1/flashcards/
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "question": "Что такое теорема Пифагора?",
+  "answer": "a² + b² = c²",
+  "deck_id": 1
+}
+
+Response 201:
+[
+  {
+    "id": 1,
+    "question": "Что такое теорема Пифагора?",
+    "answer": "a² + b² = c²",
+    "deck_id": 1,
+    "is_learned": false,
+    "created_at": "2026-04-08T10:00:00"
+  }
+]
+```
+
+#### Получить все карточки колоды
+```http
+GET /api/v1/flashcards/deck/{deck_id}
+Authorization: Bearer <token>
+```
+
+#### Получить не изученные карточки
+```http
+GET /api/v1/flashcards/unlearned/{deck_id}
+Authorization: Bearer <token>
+```
+
+#### Обновить карточку
+```http
+PUT /api/v1/flashcards/{flashcard_id}
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "is_learned": true
+}
+```
+
+#### Удалить карточку
+```http
+DELETE /api/v1/flashcards/{flashcard_id}
+Authorization: Bearer <token>
+
+Response 204: No Content
+```
+
+#### 🤖 Сгенерировать карточки из текста (AI)
+```http
+POST /api/v1/flashcards/generate/{deck_id}?text=Ваш+учебный+материал&num_cards=5
+Authorization: Bearer <token>
+
+Response 201:
+[
+  {
+    "id": 1,
+    "question": "Что такое производная?",
+    "answer": "Скорость изменения функции",
+    "deck_id": 1,
+    "is_learned": false,
+    "created_at": "2026-04-08T10:00:00"
+  }
+]
+```
+
+---
 
 ## Features
-### Implemented
-- [x] Text-to-Flashcards generation using OpenAI API.
-- [x] Persistent storage of cards in SQLite.
-- [x] Minimalist, responsive Vanilla JS frontend.
-- [x] Interactive card flipping (Question/Answer).
-- [x] Fully dockerized environment.
+### Реализовано
+- [x] Генерация флешкарточек из текста через AI (Qwen).
+- [x] PostgreSQL с асинхронным доступом через SQLAlchemy.
+- [x] JWT аутентификация и приватные колоды.
+- [x] Полный CRUD для пользователей, колод и карточек.
+- [x] Бизнес-логика разделена на сервисы.
+- [x] Alembic миграции.
+- [x] Минималистичный Vanilla JS фронтенд.
+- [x] Интерактивное переворачивание карточек.
+- [x] Полностью контейнеризованное окружение.
 
-### Not yet implemented
-- [ ] User authentication and private decks.
-- [ ] Export to Anki/Quizlet.
-- [ ] PDF/Image upload support.
-- [ ] Spaced repetition (SRS) scheduling.
+### В планах
+- [ ] Экспорт в Anki/Quizlet.
+- [ ] Поддержка PDF/Image.
+- [ ] Spaced repetition (SRS) расписание.
+- [ ] Статистика изучения.
+- [ ] Публичные колоды.
 
-## Usage
-1. Open the web interface.
-2. Paste your study material into the text area.
-3. Click **"Generate Flashcards"**.
-4. Wait a few seconds for the AI to process.
-5. Click on any card to flip it and see the answer.
+## Использование
+1. **Зарегистрируйтесь:** `POST /api/v1/auth/register`
+2. **Создайте колоду:** `POST /api/v1/decks/`
+3. **Сгенерируйте карточки:** `POST /api/v1/flashcards/generate/{deck_id}?text=...`
+4. **Изучайте:** Используйте фронтенд или API для просмотра карточек
 
-## Deployment
-To deploy this project locally or on a server:
+## Развёртывание
 
-1. **Clone the repository:**
+1. **Клонируйте репозиторий:**
    ```bash
    git clone https://github.com/KamilDV/se-toolkit-hackathon.git
    cd se-toolkit-hackathon
    ```
 
-2. **Configure environment:**
-   Create a `.env` file in the root directory:
+2. **Настройте окружение:**
+   Создайте `.env` файл в корневой директории:
    ```env
-   OPENAI_API_KEY=your_api_key_here
+   OPENAI_API_KEY=ваш_api_ключ
    ```
 
-3. **Run with Docker Compose:**
+3. **Запустите с Docker Compose:**
    ```bash
    docker compose up --build -d
    ```
-   The frontend will be available at `http://localhost` and the backend at `http://localhost:8000`.
+   Фронтенд будет доступен на `http://localhost`, бэкенд на `http://localhost:8000`.
+
+4. **Примените миграции (опционально):**
+   ```bash
+   docker compose exec backend alembic upgrade head
+   ```
+
+## Локальная разработка (без Docker)
+
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env  # и настройте его
+uvicorn app.main:app --reload
+```
