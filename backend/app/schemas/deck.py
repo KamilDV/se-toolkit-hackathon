@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import Optional, List
 from datetime import datetime
 
@@ -25,8 +25,12 @@ class DeckResponse(BaseModel):
     class Config:
         from_attributes = True
 
+    @model_validator(mode='before')
     @classmethod
-    def from_orm(cls, obj):
-        data = super().from_orm(obj)
-        data.flashcard_count = len(obj.flashcards) if hasattr(obj, 'flashcards') and obj.flashcards else 0
+    def set_flashcard_count(cls, data):
+        if isinstance(data, dict):
+            return data
+        # SQLAlchemy model instance
+        if hasattr(data, 'flashcards'):
+            data.flashcard_count = len(data.flashcards) if data.flashcards else 0
         return data
