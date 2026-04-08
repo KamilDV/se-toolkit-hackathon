@@ -20,8 +20,9 @@ export function DeckCardComponent(deck) {
   date.textContent = formatDate(deck.created_at);
   
   const count = document.createElement('span');
-  count.className = 'bg-primary-100 text-primary-700 px-2 py-1 rounded-full';
-  count.textContent = `${deck.flashcards?.length || 0} карточек`;
+  count.className = 'bg-primary-100 text-primary-700 px-2 py-1 rounded-full font-medium';
+  const cardCount = deck.flashcard_count || deck.flashcards?.length || 0;
+  count.textContent = `${cardCount} карточек`;
   
   footer.appendChild(date);
   footer.appendChild(count);
